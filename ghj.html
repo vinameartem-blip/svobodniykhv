@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Свободный Хабаровск</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=ТВОЙ_API_КЛЮЧ" type="text/javascript"></script>
+
+    <style>
+        :root { 
+            --primary: #0056b3; 
+            --white: #ffffff; 
+            --dark: #222222;
+        }
+        
+        html { scroll-behavior: smooth; }
+        
+        body {
+            font-family: 'Montserrat', sans-serif; 
+            margin: 0; 
+            padding: 0;
+            background: linear-gradient(rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.85)), 
+                        url('background.jpg') no-repeat center center fixed;
+            background-size: cover;
+            color: var(--dark);
+        }
+
+        /* Навигация */
+        nav {
+            position: fixed; top: 0; width: 100%; 
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px); z-index: 1000; 
+            padding: 18px 0; display: flex; justify-content: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        nav a { 
+            margin: 0 20px; text-decoration: none; color: var(--dark); 
+            font-weight: 600; text-transform: uppercase; font-size: 0.9rem; 
+            transition: color 0.3s; 
+        }
+        nav a:hover { color: var(--primary); }
+
+        /* Шапка */
+        .hero {
+            height: 70vh; 
+            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), 
+                        url('hero.jpg') no-repeat center center/cover;
+            display: flex; flex-direction: column; align-items: center; 
+            justify-content: center; color: white; text-align: center;
+        }
+        .hero h1 { font-size: clamp(2.5rem, 8vw, 4.5rem); margin: 0; font-weight: 800; letter-spacing: -1px; }
+        .hero p { font-size: 1.2rem; font-weight: 400; margin-top: 15px; opacity: 0.9; }
+
+        /* Основной контейнер */
+        .container { max-width: 1100px; margin: -50px auto 60px; padding: 0 20px; position: relative; z-index: 10; }
+
+        section {
+            background: var(--white); border-radius: 20px; padding: 50px; margin-bottom: 40px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.08); opacity: 0; transform: translateY(30px);
+            transition: all 0.8s ease-out;
+        }
+        section.visible { opacity: 1; transform: translateY(0); }
+
+        h2 { color: var(--primary); font-size: 2.2rem; margin-top: 0; font-weight: 700; margin-bottom: 20px; }
+        p { font-size: 1.05rem; line-height: 1.6; margin-bottom: 20px; }
+
+        .map { width: 100%; height: 550px; border-radius: 12px; margin-top: 20px; border: 1px solid #e0e0e0; }
+
+        /* Фильтры */
+        .filter-buttons { margin-bottom: 20px; display: flex; gap: 12px; flex-wrap: wrap; }
+        .filter-btn {
+            padding: 12px 24px; border: 2px solid #eee; border-radius: 10px;
+            background: white; cursor: pointer; font-family: 'Montserrat', sans-serif; font-weight: 600; 
+            font-size: 0.95rem; transition: 0.2s; color: var(--dark);
+        }
+        .filter-btn:hover { border-color: #ccc; }
+        .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* Форма и кнопка */
+        .form-section { text-align: center; }
+        .btn {
+            background: #28a745; color: white; padding: 18px 45px;
+            border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 1.1rem;
+            display: inline-block; transition: 0.3s; box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+            margin-top: 15px; border: none; cursor: pointer;
+        }
+        .btn:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(40, 167, 69, 0.4); }
+
+        /* Бейджи для остановок */
+        .badge { display: inline-block; padding: 6px 12px; border-radius: 8px; font-size: 0.85rem; font-weight: 700; margin-top: 5px; }
+        .b-yes { background: #e8f5e9; color: #2e7d32; margin-right: 8px; }
+        .b-no { background: #ffebee; color: #c62828; }
+
+        footer { text-align: center; padding: 40px; color: #666; font-weight: 500; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+    <div style="position: fixed; top: 15px; right: 20px; z-index: 2001;">
+        <button onclick="checkAdmin()" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.4); color: white; padding: 10px 20px; border-radius: 30px; cursor: pointer; font-family: 'Montserrat', sans-serif; font-size: 0.75rem; font-weight: 700; backdrop-filter: blur(8px); transition: 0.3s;">
+            🔒 АДМИН
+        </button>
+    </div>
+
+    <nav>
+        <a href="#about">О проекте</a>
+        <a href="#barriers">Карта барьеров</a>
+        <a href="#transport">Остановки</a>
+        <a href="#form">Форма</a>
+    </nav>
+
+    <header class="hero">
+        <h1>СВОБОДНЫЙ ХАБАРОВСК</h1>
+        <p>Интерактивная карта доступности городской среды</p>
+    </header>
+
+    <div class="container">
+        
+        <section id="about">
+            <h2>О проекте</h2>
+            <p>Мы создаем карту, которая помогает жителям заранее планировать маршрут, избегая опасных участков, высоких бордюров и сильного гололеда. Наша цель — сделать перемещение по Хабаровску безопасным и комфортным.</p>
+        </section>
+
+        <section id="barriers">
+            <h2>Карта препятствий</h2>
+            <p>Используйте фильтры, чтобы оставить на карте только нужные метки.</p>
+            
+            <div class="filter-buttons">
+                <button class="filter-btn active" onclick="filterMarkers('all', this)">Все точки</button>
+                <button class="filter-btn" onclick="filterMarkers('b', this)">⚠ Барьеры</button>
+                <button class="filter-btn" onclick="filterMarkers('i', this)">❄ Гололед</button>
+            </div>
+
+            <div id="map_barriers" class="map"></div>
+        </section>
+
+        <section id="transport">
+            <h2>Доступный транспорт</h2>
+            <p>Актуальная информация о наличии Wi-Fi и теплых павильонов на остановках города.</p>
+            <div id="map_transport" class="map"></div>
+        </section>
+
+        <section id="form" class="form-section">
+            <h2>Сообщить о проблеме</h2>
+            <p>Заметили разбитую лестницу, опасный съезд или сильный гололед? Отправьте нам координаты.</p>
+            
+            <a href="ТВОЯ_ССЫЛКА_НА_ФОРМУ" class="btn" target="_blank">ПЕРЕЙТИ К ФОРМЕ</a>
+
+            <div id="admin-panel" style="display: none; margin: 40px auto 0; padding: 25px; border: 2px dashed #0056b3; border-radius: 20px; background: #f0f7ff; max-width: 500px; text-align: center;">
+                <p style="font-weight: 800; color: #0056b3; margin-bottom: 5px;">ПАНЕЛЬ УПРАВЛЕНИЯ АКТИВИРОВАНА</p>
+                <p style="font-size: 0.85rem; color: #666; margin-bottom: 20px;">Выгрузка базы данных в формате Excel доступна.</p>
+                <a href="otvety.xlsx" download class="btn" style="background: #0056b3; font-size: 0.9rem; padding: 12px 25px;">
+                    📥 СКАЧАТЬ БАЗУ ОТВЕТОВ (.XLSX)
+                </a>
+            </div>
+        </section>
+
+    </div>
+
+    <footer>&copy; 2026 Проект «Свободный Хабаровск»</footer>
+
+    <script>
+        // Анимация скролла
+        const observer = new IntersectionObserver(entries => {
+            entries.forEach(entry => { if (entry.isIntersecting) entry.target.classList.add('visible'); });
+        }, { threshold: 0.1 });
+        document.querySelectorAll('section').forEach(s => observer.observe(s));
+
+        // Яндекс Карты
+        let barrierMap;
+        let objectManager;
+
+        ymaps.ready(init);
+
+        function init() {
+            const khb = [48.4814, 135.0721];
+
+            // Карта барьеров
+            barrierMap = new ymaps.Map("map_barriers", { 
+                center: khb, zoom: 12, controls: ['zoomControl', 'geolocationControl'] 
+            });
+
+            objectManager = new ymaps.ObjectManager({ clusterize: true });
+            barrierMap.geoObjects.add(objectManager);
+
+            const points = {
+                "type": "FeatureCollection",
+                "features": [
+                    { "type": "Feature", "id": 1, "geometry": { "type": "Point", "coordinates": [48.4830, 135.0750] }, "properties": { "balloonContent": "<b>Высокий бордюр</b><br>Пл. Ленина, нет съезда", "type": "b" }, "options": { "preset": "islands#redIcon" } },
+                    { "type": "Feature", "id": 2, "geometry": { "type": "Point", "coordinates": [48.4950, 135.0720] }, "properties": { "balloonContent": "<b>Гололед на спуске</b><br>Амурский бульвар", "type": "i" }, "options": { "preset": "islands#blueIcon" } },
+                    { "type": "Feature", "id": 3, "geometry": { "type": "Point", "coordinates": [48.5120, 135.0510] }, "properties": { "balloonContent": "<b>Разбит тротуар</b><br>Район ТОГУ", "type": "b" }, "options": { "preset": "islands#redIcon" } },
+                    { "type": "Feature", "id": 4, "geometry": { "type": "Point", "coordinates": [48.4720, 135.0850] }, "properties": { "balloonContent": "<b>Нет пандуса у аптеки</b><br>Район Энергомаш", "type": "b" }, "options": { "preset": "islands#redIcon" } },
+                    { "type": "Feature", "id": 5, "geometry": { "type": "Point", "coordinates": [48.4880, 135.0610] }, "properties": { "balloonContent": "<b>Скользкая лестница</b><br>Ул. Серышева", "type": "i" }, "options": { "preset": "islands#blueIcon" } },
+                    { "type": "Feature", "id": 6, "geometry": { "type": "Point", "coordinates": [48.3950, 135.0980] }, "properties": { "balloonContent": "<b>Обледенение тротуара</b><br>Южный микрорайон, ТЦ ЭВР", "type": "i" }, "options": { "preset": "islands#blueIcon" } },
+                    { "type": "Feature", "id": 7, "geometry": { "type": "Point", "coordinates": [48.4610, 135.0920] }, "properties": { "balloonContent": "<b>Узкий проход, ремонт</b><br>Первый микрорайон", "type": "b" }, "options": { "preset": "islands#redIcon" } },
+                    { "type": "Feature", "id": 8, "geometry": { "type": "Point", "coordinates": [48.4735, 135.0560] }, "properties": { "balloonContent": "<b>Нет съезда с тротуара</b><br>Комсомольская площадь", "type": "b" }, "options": { "preset": "islands#redIcon" } },
+                    { "type": "Feature", "id": 9, "geometry": { "type": "Point", "coordinates": [48.4410, 135.1020] }, "properties": { "balloonContent": "<b>Сильный гололед у парковки</b><br>Ерофей Арена", "type": "i" }, "options": { "preset": "islands#blueIcon" } },
+                    { "type": "Feature", "id": 10, "geometry": { "type": "Point", "coordinates": [48.4600, 135.0800] }, "properties": { "balloonContent": "<b>Крутой подъем без перил</b><br>Район Броско Молл", "type": "b" }, "options": { "preset": "islands#redIcon" } }
+                ]
+            };
+            objectManager.add(points);
+
+            // Карта остановок
+            const mapT = new ymaps.Map("map_transport", { 
+                center: khb, zoom: 12, controls: ['zoomControl', 'geolocationControl'] 
+            });
+
+            const stops = [
+                {c: [48.4826, 135.0735], n: "Пл. Ленина", w: true, h: true},
+                {c: [48.4782, 135.0645], n: "Муравьева-Амурского", w: true, h: false},
+                {c: [48.4905, 135.0788], n: "ЖД Больница", w: true, h: false},
+                {c: [48.4735, 135.0560], n: "Комсомольская площадь", w: true, h: true},
+                {c: [48.4855, 135.0832], n: "Ул. Дикопольцева", w: false, h: true},
+                {c: [48.4600, 135.0800], n: "Пионерская (Броско Молл)", w: false, h: false},
+                {c: [48.5280, 135.1670], n: "Аэропорт", w: true, h: true}
+            ];
+
+            stops.forEach(s => {
+                const html = `<b>${s.n}</b><br><span class="badge ${s.w ? 'b-yes' : 'b-no'}">Wi-Fi: ${s.w ? 'Да' : 'Нет'}</span><span class="badge ${s.h ? 'b-yes' : 'b-no'}">Тепло: ${s.h ? 'Да' : 'Нет'}</span>`;
+                mapT.geoObjects.add(new ymaps.Placemark(s.c, { balloonContentBody: html }, { preset: 'islands#blackTransitIcon' }));
+            });
+        }
+
+        // Фильтры
+        function filterMarkers(type, btn) {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            if (type === 'all') {
+                objectManager.setFilter(() => true);
+            } else {
+                objectManager.setFilter(object => object.properties.type === type);
+            }
+        }
+
+        // 3. СКРИПТ АВТОРИЗАЦИИ АДМИНА
+        function checkAdmin() {
+            // Пароль okak67 зашифрован в Base64
+            const hash = "b2thazY3"; 
+            const input = prompt("Введите пароль доступа к базе данных:");
+
+            if (input && btoa(input) === hash) {
+                alert("Доступ подтвержден.");
+                // Показываем скрытую панель
+                const panel = document.getElementById('admin-panel');
+                panel.style.display = 'block';
+                // Плавно прокручиваем страницу к кнопке скачивания
+                panel.scrollIntoView({ behavior: 'smooth' });
+            } else if (input !== null) {
+                alert("Ошибка доступа: Неверный пароль.");
+            }
+        }
+    </script>
+</body>
+</html>
