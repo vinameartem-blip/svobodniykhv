@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Городской радар — Хабаровск</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=ТВОЙ_КЛЮЧ_ЯНДЕКС" type="text/javascript"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        :root {
+            --primary: #0056b3;
+            --secondary: #003366;
+            --accent: #28a745;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --white: #ffffff;
+            --modal-bg: #000000;
+            --gold: #d4af37;
+        }
+
+        html { scroll-behavior: smooth; }
+        * { box-sizing: border-box; }
+        
+        body {
+            background: linear-gradient(rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.85)), url('background.jpg');
+            background-size: cover;
+            background-attachment: fixed;
+            background-position: center;
+            margin: 0;
+            font-family: 'Montserrat', sans-serif;
+            color: var(--dark);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        nav {
+            position: fixed; top: 0; width: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 1000; padding: 15px 5%;
+            display: flex; justify-content: space-between; align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .nav-links a {
+            margin-left: 20px; text-decoration: none;
+            color: var(--dark); font-weight: 600; font-size: 0.9rem;
+            transition: 0.3s; cursor: pointer;
+        }
+        .nav-links a:hover { color: var(--primary); }
+
+        .user-block { display: flex; align-items: center; gap: 15px; }
+        .points-badge {
+            background: var(--secondary); color: white;
+            padding: 5px 12px; border-radius: 20px; font-weight: 700; font-size: 0.85rem;
+        }
+        .login-btn {
+            background: var(--primary); color: white; border: none;
+            padding: 8px 18px; border-radius: 8px; cursor: pointer;
+            font-weight: 600; font-family: inherit; transition: 0.3s;
+        }
+        .login-btn:hover { background: var(--secondary); }
+
+        header {
+            height: 70vh;
+            background-image: url('hero.jpg');
+            background-size: cover;
+            background-position: center;
+            color: white;
+            padding: 50px 20px;
+            text-align: center;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        header h1 { font-size: 3.5rem; font-weight: 800; margin: 0; letter-spacing: -1px; }
+        header p { font-size: 1.2rem; max-width: 600px; margin-top: 15px; opacity: 0.9; }
+
+        .container { max-width: 1100px; margin: -60px auto 60px; padding: 0 20px; }
+        section {
+            background: var(--white); border-radius: 20px;
+            padding: 40px; margin-bottom: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        }
+        h2 { color: var(--secondary); font-weight: 800; font-size: 1.8rem; margin-top: 0; }
+
+        .map-wrapper { position: relative; border-radius: 15px; overflow: hidden; border: 1px solid #eee; }
+        #map { width: 100%; height: 500px; }
+        .filter-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .filter-btn {
+            padding: 10px 20px; border-radius: 8px; border: 2px solid #eee;
+            background: white; cursor: pointer; font-weight: 600; font-family: inherit; transition: 0.3s;
+        }
+        .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        #shop-sidebar {
+            position: fixed; top: 0; left: 0; width: 380px; height: 100%;
+            background: var(--modal-bg); color: #fff;
+            transform: translateX(-100%); transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 2000; overflow-y: auto; box-shadow: 10px 0 30px rgba(0,0,0,0.8);
+            padding: 30px 20px; border-right: 2px solid var(--gold);
+        }
+        #shop-sidebar h2 { color: var(--gold); margin-bottom: 10px; }
+        .close-shop {
+            position: absolute; top: 20px; right: 20px;
+            background: none; border: none; color: var(--gold); font-size: 1.5rem; cursor: pointer;
+        }
+        .shop-card {
+            border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 15px; padding: 20px;
+            text-align: center; margin-bottom: 20px; transition: 0.3s;
+            background: radial-gradient(circle, rgba(212,175,55,0.05) 0%, rgba(0,0,0,1) 100%);
+        }
+        .shop-card:hover { border-color: var(--gold); box-shadow: 0 0 15px rgba(212, 175, 55, 0.2); }
+        .shop-icon { font-size: 2.5rem; margin-bottom: 10px; display: block; }
+        .buy-btn {
+            width: 100%; padding: 12px; border: 1px solid var(--gold); border-radius: 8px;
+            background: transparent; color: var(--gold); font-weight: 700;
+            cursor: pointer; margin-top: 15px; transition: 0.3s;
+        }
+        .buy-btn:hover { background: var(--gold); color: var(--modal-bg); }
+        
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); z-index: 1500; display: none; backdrop-filter: blur(5px);
+        }
+
+        .modal-wrapper {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: var(--modal-bg); color: white; width: 90%; max-width: 400px;
+            padding: 40px 30px; border-radius: 15px; z-index: 2000; display: none;
+            border: 1px solid var(--gold); box-shadow: 0 0 40px rgba(212, 175, 55, 0.15);
+        }
+        .modal-tabs { display: flex; margin-bottom: 20px; border-bottom: 1px solid #333; }
+        .tab-btn {
+            flex: 1; background: none; border: none; padding: 10px; color: #888;
+            font-weight: 700; cursor: pointer; transition: 0.3s; font-family: inherit;
+        }
+        .tab-btn.active { color: var(--gold); border-bottom: 2px solid var(--gold); }
+        .auth-form input {
+            width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px;
+            border: 1px solid #333; background: #111; color: white; font-family: inherit;
+        }
+        .auth-form input:focus { outline: none; border-color: var(--gold); }
+        .auth-submit {
+            width: 100%; padding: 12px; background: var(--gold); color: #000;
+            border: none; border-radius: 8px; font-weight: 700; cursor: pointer; transition: 0.3s;
+        }
+        .auth-submit:hover { box-shadow: 0 0 15px rgba(212, 175, 55, 0.4); }
+
+        .chat-widget { position: fixed; bottom: 30px; right: 30px; z-index: 2000; }
+        .chat-toggle {
+            width: 65px; height: 65px; border-radius: 50%; background: var(--primary);
+            color: white; border: none; font-size: 1.8rem; cursor: pointer;
+            box-shadow: 0 5px 20px rgba(0,86,179,0.3); transition: 0.3s;
+        }
+        .chat-toggle:hover { transform: scale(1.05); }
+        .chat-box {
+            position: absolute; bottom: 80px; right: 0; width: 350px; height: 500px;
+            background: white; border-radius: 15px; box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+            display: none; flex-direction: column; overflow: hidden; border: 1px solid #eee;
+        }
+        .chat-head { background: var(--primary); color: white; padding: 18px; font-weight: 700; display: flex; justify-content: space-between; }
+        .chat-content { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: #f9f9f9; }
+        .chat-input-zone { padding: 12px; background: white; border-top: 1px solid #eee; }
+        .msg { max-width: 85%; padding: 10px 14px; border-radius: 12px; font-size: 0.9rem; word-wrap: break-word; }
+        .msg.bot { background: #e9ecef; align-self: flex-start; border-bottom-left-radius: 2px; }
+        .msg.user { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .opt-btn {
+            display: block; width: 100%; padding: 10px; margin-bottom: 8px;
+            border: 1px solid var(--primary); border-radius: 8px; background: white;
+            color: var(--primary); font-weight: 600; text-align: left; cursor: pointer; font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="overlay" id="main-overlay" onclick="closeAllPanels()"></div>
+
+    <nav>
+        <div style="font-weight: 800; font-size: 1.2rem; color: var(--secondary);">ГОРОДСКОЙ РАДАР</div>
+        <div class="user-block">
+            <div id="stats" style="display: none;" class="points-badge">
+                <span id="u_name">Игрок</span>: 💎 <span id="u_points">0</span>
+            </div>
+            <button class="login-btn" id="login_trigger" onclick="openAuthModal()">Вход / Регистрация</button>
+            <button class="login-btn" id="logout_trigger" style="display: none; background:#dc3545;" onclick="userLogout()">Выйти</button>
+            <div class="nav-links">
+                <a href="#about">О проекте</a>
+                <a href="#map-section">Карта</a>
+                <a onclick="toggleShop()">Магазин</a>
+            </div>
+        </div>
+    </nav>
+
+    <header>
+        <h1>ГОРОДСКОЙ РАДАР</h1>
+        <p>Интерактивная система мониторинга доступности городской среды Хабаровска. Отмечай препятствия — помогай городу!</p>
+    </header>
+
+    <div class="container">
+        <section id="about">
+            <h2>О проекте</h2>
+            <p>Проект направлен на создание «карты барьеров», где каждый житель может отметить участки с плохой доступностью. Ваши данные помогают делать город удобнее для пожилых людей, родителей с колясками и маломобильных граждан.</p>
+        </section>
+
+        <section id="map-section">
+            <h2>Карта препятствий</h2>
+            <div class="filter-bar">
+                <button class="filter-btn active" onclick="applyFilter('all', this)">Все отчёты</button>
+                <button class="filter-btn" onclick="applyFilter('b', this)">🚧 Барьеры</button>
+                <button class="filter-btn" onclick="applyFilter('i', this)">❄ Гололёд</button>
+            </div>
+            <div class="map-wrapper">
+                <div id="map"></div>
+            </div>
+        </section>
+    </div>
+
+    <div id="shop-sidebar">
+        <button class="close-shop" onclick="toggleShop()">✕</button>
+        <h2>Магазин наград</h2>
+        <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 30px;">Обменивайте баллы на бонусы.</p>
+        
+        <div class="shop-card">
+            <span class="shop-icon">☕</span>
+            <h3>Горячий кофе</h3>
+            <p>Стоимость: <b style="color:var(--gold)">100 баллов</b></p>
+            <button class="buy-btn" onclick="redeem(100, 'Кофе')">Обменять</button>
+        </div>
+        <div class="shop-card">
+            <span class="shop-icon">🍿</span>
+            <h3>Билет в кино</h3>
+            <p>Стоимость: <b style="color:var(--gold)">250 баллов</b></p>
+            <button class="buy-btn" onclick="redeem(250, 'Кино')">Обменять</button>
+        </div>
+        <div class="shop-card">
+            <span class="shop-icon">🎟</span>
+            <h3>Проездной</h3>
+            <p>Стоимость: <b style="color:var(--gold)">500 баллов</b></p>
+            <button class="buy-btn" onclick="redeem(500, 'Проездной на месяц')">Обменять</button>
+        </div>
+    </div>
+
+    <div class="modal-wrapper" id="auth-modal">
+        <div class="modal-tabs">
+            <button class="tab-btn active" id="tab-login" onclick="switchAuthTab('login')">Вход</button>
+            <button class="tab-btn" id="tab-register" onclick="switchAuthTab('register')">Регистрация</button>
+        </div>
+        
+        <div class="auth-form">
+            <input type="email" id="auth-email" placeholder="Email адрес">
+            <input type="password" id="auth-password" placeholder="Пароль (от 6 символов)">
+            <p id="auth-error" style="color: #ff4d4d; font-size: 0.85rem; display: none; margin-top: -5px;"></p>
+            <button class="auth-submit" id="auth-action-btn" onclick="processAuth()">Войти</button>
+        </div>
+    </div>
+
+    <div class="chat-widget">
+        <div class="chat-box" id="chat_ui">
+            <div class="chat-head">
+                <span>Поддержка Радара</span>
+                <span style="cursor:pointer" onclick="toggleChat()">✕</span>
+            </div>
+            <div class="chat-content" id="chat_msgs"></div>
+            <div class="chat-input-zone" id="chat_actions">
+                <button class="opt-btn" onclick="initChat()">Начать диалог</button>
+            </div>
+        </div>
+        <button class="chat-toggle" onclick="toggleChat()">💬</button>
+    </div>
+
+    <script>
+        // SUPABASE
+        const _supabaseUrl = 'https://kgovmulpudxjoshcfncs.supabase.co'; 
+        const _supabaseKey = 'sb_publishable_dqEHmOAnRqDw6Q9NnI28og_MwdmQHpL';
+        const supabaseClient = window.supabase.createClient(_supabaseUrl, _supabaseKey);
+
+        let user = { auth: false, id: null, name: '', points: 0, voted: [] };
+        let authMode = 'login'; 
+
+        supabaseClient.auth.getSession().then(({ data: { session } }) => {
+            if (session) setupUserSession(session.user);
+        });
+
+        supabaseClient.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_IN' && session) setupUserSession(session.user);
+            if (event === 'SIGNED_OUT') clearUserSession();
+        });
+
+        async function setupUserSession(authUser) {
+            user.auth = true;
+            user.id = authUser.id;
+            user.name = authUser.email.split('@')[0];
+            
+            // Считаем баланс из истории
+            user.points = await calculateBalance();
+
+            const { data: pastVotes } = await supabaseClient
+                .from('votes')
+                .select('marker_id')
+                .eq('user_id', user.id);
+            user.voted = pastVotes ? pastVotes.map(v => v.marker_id) : [];
+
+            document.getElementById('u_name').innerText = user.name;
+            document.getElementById('u_points').innerText = user.points;
+            document.getElementById('stats').style.display = 'flex';
+            document.getElementById('login_trigger').style.display = 'none';
+            document.getElementById('logout_trigger').style.display = 'inline-block';
+            
+            subscribeToAdmin();
+            closeAllPanels();
+        }
+
+        // Вычисление баланса из истории
+        async function calculateBalance() {
+            const { data, error } = await supabaseClient
+                .from('points_history')
+                .select('amount')
+                .eq('user_id', user.id);
+            
+            if (error || !data) return 0;
+            
+            return data.reduce((sum, record) => sum + record.amount, 0);
+        }
+
+        // Добавление баллов с записью в историю
+        async function addPoints(amount, reason) {
+            if (!user.auth) return;
+            
+            // Запись в историю
+            await supabaseClient
+                .from('points_history')
+                .insert([{ 
+                    user_id: user.id, 
+                    amount: amount, 
+                    reason: reason 
+                }]);
+
+            // Обновляем профиль
+            user.points += amount;
+            document.getElementById('u_points').innerText = user.points;
+            
+            await supabaseClient
+                .from('profiles')
+                .upsert([{ id: user.id, points: user.points }]);
+        }
+
+        async function userLogout() {
+            await supabaseClient.auth.signOut();
+        }
+
+        function clearUserSession() {
+            user = { auth: false, id: null, name: '', points: 0, voted: [] };
+            document.getElementById('stats').style.display = 'none';
+            document.getElementById('login_trigger').style.display = 'inline-block';
+            document.getElementById('logout_trigger').style.display = 'none';
+        }
+
+        function toggleShop() {
+            let shop = document.getElementById('shop-sidebar');
+            let overlay = document.getElementById('main-overlay');
+            if(shop.style.transform === 'translateX(0%)') {
+                shop.style.transform = 'translateX(-100%)';
+                overlay.style.display = 'none';
+            } else {
+                shop.style.transform = 'translateX(0%)';
+                overlay.style.display = 'block';
+            }
+        }
+
+        function openAuthModal() {
+            document.getElementById('auth-modal').style.display = 'block';
+            document.getElementById('main-overlay').style.display = 'block';
+            document.getElementById('auth-error').style.display = 'none';
+        }
+
+        function closeAllPanels() {
+            document.getElementById('shop-sidebar').style.transform = 'translateX(-100%)';
+            document.getElementById('auth-modal').style.display = 'none';
+            document.getElementById('main-overlay').style.display = 'none';
+        }
+
+        function switchAuthTab(mode) {
+            authMode = mode;
+            document.getElementById('auth-error').style.display = 'none';
+            if (mode === 'login') {
+                document.getElementById('tab-login').classList.add('active');
+                document.getElementById('tab-register').classList.remove('active');
+                document.getElementById('auth-action-btn').innerText = "Войти";
+            } else {
+                document.getElementById('tab-register').classList.add('active');
+                document.getElementById('tab-login').classList.remove('active');
+                document.getElementById('auth-action-btn').innerText = "Зарегистрироваться";
+            }
+        }
+
+        async function processAuth() {
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            const errBox = document.getElementById('auth-error');
+
+            if (!email || password.length < 6) {
+                errBox.innerText = "Введите корректный email и пароль (минимум 6 символов).";
+                errBox.style.display = 'block';
+                return;
+            }
+
+            errBox.style.display = 'none';
+            document.getElementById('auth-action-btn').innerText = "Загрузка...";
+
+            let result;
+            if (authMode === 'login') {
+                result = await supabaseClient.auth.signInWithPassword({ email, password });
+            } else {
+                result = await supabaseClient.auth.signUp({ email, password });
+            }
+
+            if (result.error) {
+                errBox.innerText = result.error.message;
+                errBox.style.display = 'block';
+                document.getElementById('auth-action-btn').innerText = authMode === 'login' ? "Войти" : "Зарегистрироваться";
+            } 
+        }
+
+        // ============================================================
+        // КАРТА
+        // ============================================================
+        let map, objManager;
+
+        ymaps.ready(() => {
+            map = new ymaps.Map("map", { center: [48.4750, 135.0580], zoom: 14, controls: ['zoomControl'] });
+            objManager = new ymaps.ObjectManager({ clusterize: true });
+            map.geoObjects.add(objManager);
+            renderMarkers();
+        });
+
+        async function getVotesCount(markerId) {
+            const { count, error } = await supabaseClient
+                .from('votes')
+                .select('*', { count: 'exact', head: true })
+                .eq('marker_id', markerId);
+            if (error) return 0;
+            return count || 0;
+        }
+
+        async function renderMarkers() {
+            const features = [
+                { "type": "Feature", "id": 101, "geometry": { "type": "Point", "coordinates": [48.4735, 135.0558] }, 
+                  "properties": { "type": "b", "hintContent": "Барьер", title: "Отсутствует пандус", desc: "ул. Тургенева, 24", photo: "1.jpg" }, "options": { "preset": "islands#redIcon" } },
+                { "type": "Feature", "id": 102, "geometry": { "type": "Point", "coordinates": [48.4862, 135.0511] }, 
+                  "properties": { "type": "i", "hintContent": "Гололёд", title: "Сильный гололёд", desc: "ул. Серышева, 15", photo: "" }, "options": { "preset": "islands#blueIcon" } },
+                { "type": "Feature", "id": 103, "geometry": { "type": "Point", "coordinates": [48.4718, 135.0505] }, 
+                  "properties": { "type": "b", "hintContent": "Барьер", title: "Высокий бордюр на переходе", desc: "ул. Шевченко, 11", photo: "" }, "options": { "preset": "islands#redIcon" } },
+                { "type": "Feature", "id": 104, "geometry": { "type": "Point", "coordinates": [48.4746, 135.0645] }, 
+                  "properties": { "type": "b", "hintContent": "Барьер", title: "Разрушен асфальт", desc: "ул. Муравьева-Амурского, 20", photo: "" }, "options": { "preset": "islands#redIcon" } },
+                { "type": "Feature", "id": 105, "geometry": { "type": "Point", "coordinates": [48.4780, 135.0620] }, 
+                  "properties": { "type": "i", "hintContent": "Гололёд", title: "Нечищенная лестница", desc: "Спуск к бульвару", photo: "" }, "options": { "preset": "islands#blueIcon" } }
+            ];
+
+            for (let f of features) {
+                const votes = await getVotesCount(f.id);
+                let photoHtml = f.properties.photo ? `<img src="problems/${f.properties.photo}" style="width:100%; border-radius:5px; margin-bottom:10px;" alt="Фото">` : '';
+
+                f.properties.balloonContent = `
+                    <div style="color: #d4af37; background: #000; padding: 15px; border: 1px solid #d4af37; border-radius: 8px; font-family: Montserrat;">
+                        <h3 style="margin: 0 0 5px 0; font-size: 1rem;">${f.properties.title} (№${f.id})</h3>
+                        <p style="margin: 0 0 10px 0; color: #ccc; font-size: 0.85rem;">${f.properties.desc}</p>
+                        ${photoHtml}
+                        <p style="margin: 0 0 10px 0; font-size: 0.9rem;">Голосов: <span id="v-${f.id}" style="font-weight: bold; font-size: 1.1rem;">${votes}</span></p>
+                        <button onclick="vote(${f.id})" style="background: #d4af37; color: #000; font-weight: bold; font-family: inherit; border: none; padding: 8px 10px; cursor: pointer; width: 100%; border-radius: 5px; transition: 0.3s;">
+                            Проголосовать
+                        </button>
+                    </div>
+                `;
+            }
+            objManager.add({ "type": "FeatureCollection", "features": features });
+        }
+
+        async function vote(markerId) {
+            if (!user.auth) return openAuthModal();
+            if (user.voted.includes(markerId)) return alert("Ты уже проголосовал за эту точку!");
+
+            user.voted.push(markerId);
+
+            await supabaseClient.from('votes').insert([{ user_id: user.id, marker_id: markerId }]);
+            await addPoints(5, `Голосование за метку #${markerId}`);
+
+            const newCount = await getVotesCount(markerId);
+            const countElement = document.getElementById(`v-${markerId}`);
+            if (countElement) countElement.innerText = newCount;
+                
+            alert("Круто! Твой голос засчитан. Начислено +5 баллов.");
+        }
+
+        function applyFilter(t, btn) {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            objManager.setFilter(t === 'all' ? () => true : o => o.properties.type === t);
+        }
+
+        async function redeem(cost, item) {
+            if(!user.auth) return openAuthModal();
+            if(user.points < cost) return alert("Недостаточно баллов!");
+            
+            await addPoints(-cost, `Покупка: ${item}`);
+            alert(`Успешно! Куплено: ${item}.`);
+        }
+
+        // ========== ЧАТ ==========
+        function msg(text, sender) {
+            let d = document.createElement('div');
+            d.className = `msg ${sender}`; 
+            d.innerHTML = text;
+            document.getElementById('chat_msgs').appendChild(d);
+            document.getElementById('chat_msgs').scrollTop = 9999;
+        }
+
+        async function sendMessageToAdmin(text) {
+            if (!user.auth) return;
+            await supabaseClient.from('messages').insert([{ user_id: user.id, text: text, sender_role: 'user' }]);
+        }
+
+        function subscribeToAdmin() {
+            supabaseClient
+                .channel('admin_chat')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `user_id=eq.${user.id}` }, (payload) => {
+                    if (payload.new.sender_role === 'admin') msg(payload.new.text, "bot");
+                })
+                .subscribe();
+        }
+
+        async function loadChat() {
+            if (!user.auth) return;
+            const { data } = await supabaseClient.from('messages').select('*').eq('user_id', user.id).order('created_at', { ascending: true });
+            if (data) {
+                document.getElementById('chat_msgs').innerHTML = '';
+                msg("Вы перешли в чат поддержки.", "bot");
+                data.forEach(m => msg(m.text, m.sender_role === 'admin' ? 'bot' : 'user'));
+            }
+        }
+
+        function toggleChat() {
+            let c = document.getElementById('chat_ui');
+            c.style.display = c.style.display === 'flex' ? 'none' : 'flex';
+        }
+
+        function initChat() {
+            document.getElementById('chat_msgs').innerHTML = '';
+            msg("Привет! Я бот-помощник.", "bot");
+            document.getElementById('chat_actions').innerHTML = `
+                <button class="opt-btn" onclick="reportStep()">🚧 Найдено препятствие</button>
+                <button class="opt-btn" onclick="adminStep()">💬 Связь с админом</button>
+            `;
+        }
+
+        function reportStep() {
+            msg("Найдено препятствие", "user");
+            msg("Опишите, где находится? Можете прикрепить фото.", "bot");
+            document.getElementById('chat_actions').innerHTML = `
+                <input id="rep_text" type="text" placeholder="Ул. Ленина 12, яма" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:5px;">
+                <input id="rep_photo" type="file" accept="image/*" style="width:100%; margin-bottom:10px; font-size: 0.8rem;">
+                <button class="login-btn" style="width:100%" onclick="finishReport()">Отправить отчет</button>
+            `;
+        }
+
+        async function finishReport() {
+            let val = document.getElementById('rep_text').value;
+            let fileInput = document.getElementById('rep_photo');
+            let file = fileInput.files[0];
+            if(!val) return;
+            msg(val + (file ? " [Фото: " + file.name + "]" : ""), "user");
+            msg("⏳ Отправка...", "bot");
+            document.getElementById('chat_actions').innerHTML = '<button class="opt-btn" onclick="initChat()">В меню</button>';
+            
+            try {
+                let photoUrl = null;
+                if (file) {
+                    const fileName = `${Date.now()}.${file.name.split('.').pop()}`;
+                    const { error: uploadError } = await supabaseClient.storage.from('user_uploads').upload(fileName, file);
+                    if (uploadError) throw uploadError;
+                    const { data: publicData } = supabaseClient.storage.from('user_uploads').getPublicUrl(fileName);
+                    photoUrl = publicData.publicUrl;
+                }
+
+                const { error: dbError } = await supabaseClient
+                    .from('user_reports')
+                    .insert([{ user_id: user.id, street_address: val, photo_url: photoUrl }]);
+                if (dbError) throw dbError;
+
+                await addPoints(50, 'Отправка репорта о препятствии');
+                msg("✅ Отправлено! +50 баллов!", "bot");
+            } catch (error) {
+                console.error("Ошибка:", error);
+                msg("❌ Ошибка при отправке.", "bot");
+            }
+        }
+
+        function adminStep() {
+            if (!user.auth) { msg("Нужно войти в аккаунт.", "bot"); return; }
+            loadChat();
+            document.getElementById('chat_actions').innerHTML = `
+                <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                    <input id="adm_text" type="text" placeholder="Сообщение..." style="flex:1; padding:10px; border:1px solid #ccc; border-radius:5px; font-family:inherit;">
+                    <button class="login-btn" style="background:var(--secondary); padding: 10px 15px;" onclick="finishAdmin()">Отправить</button>
+                </div>
+                <button class="opt-btn" style="text-align:center; padding: 5px; font-size: 0.8rem;" onclick="initChat()">⬅ В меню</button>
+            `;
+            setTimeout(() => {
+                document.getElementById('adm_text').addEventListener('keypress', function (e) {
+                    if (e.key === 'Enter') finishAdmin();
+                });
+            }, 100);
+        }
+
+        function finishAdmin() {
+            const textInput = document.getElementById('adm_text');
+            const text = textInput.value.trim();
+            if (!text) return;
+            msg(text, "user");
+            sendMessageToAdmin(text);
+            textInput.value = '';
+            textInput.focus();
+        }
+    </script>
+</body>
+</html>
